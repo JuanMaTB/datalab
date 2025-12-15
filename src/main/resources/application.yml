@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: datalab
+  profiles:
+    active: dev
+
+datalab:
+  executor:
+    corePoolSize: 6
+    maxPoolSize: 6
+    queueCapacity: 200
+    threadNamePrefix: datalab-
