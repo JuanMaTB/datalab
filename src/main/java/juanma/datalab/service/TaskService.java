@@ -26,6 +26,7 @@ public class TaskService {
 
     private final DatasetService datasetService;
     private final ResultService resultService;
+    private final AuditService auditService;   // 👈 NUEVO
     private final ObjectMapper objectMapper;
 
     @Async("datalabExecutor")
@@ -78,7 +79,7 @@ public class TaskService {
 
             for (int i = dataStart + start; i < dataStart + end; i++) {
 
-                // cancelación periódica: cada 50 filas revisamos el flag
+                // cancelación periódica
                 if (count > 0 && count % 50 == 0) {
                     boolean cancelled = jobRepository.findById(job.getId()).orElseThrow().isCancelRequested();
                     if (cancelled) {
@@ -121,12 +122,17 @@ public class TaskService {
             taskRepository.save(task);
 
         } catch (TransientDataException e) {
-            throw e; // para que el aspect reintente
+            // este se reintenta por AOP, NO lo auditamos aún
+            throw e;
+
         } catch (Exception e) {
             task.setStatus(TaskStatus.FAILED);
             task.setErrorMessage(e.getMessage());
             task.setFinishedAt(LocalDateTime.now());
             taskRepository.save(task);
+
+            // ✅ auditoría REQUIRES_NEW (no rompe nada)
+            auditService.recordTaskFailure(job.getId(), task.getId(), e.getMessage());
         }
 
         return CompletableFuture.completedFuture(null);
