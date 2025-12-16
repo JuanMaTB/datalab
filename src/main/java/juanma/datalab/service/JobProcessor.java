@@ -27,7 +27,7 @@ public class JobProcessor {
 
         List<Task> tasks = taskRepository.findByJobId(jobId);
 
-        List<CompletableFuture<?>> futures = tasks.stream()
+        List<CompletableFuture<Void>> futures = tasks.stream()
                 .map(task ->
                         taskService.processTask(task.getId())
                                 .exceptionally(ex -> null) // evita romper el allOf

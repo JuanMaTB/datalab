@@ -1,6 +1,10 @@
 package juanma.datalab.service;
 
-import juanma.datalab.domain.*;
+import juanma.datalab.aspects.RetryableTransient;
+import juanma.datalab.aspects.TransientDataException;
+import juanma.datalab.domain.Job;
+import juanma.datalab.domain.Task;
+import juanma.datalab.domain.TaskStatus;
 import juanma.datalab.repository.JobRepository;
 import juanma.datalab.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,9 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
-import juanma.datalab.aspects.RetryableTransient;
-import juanma.datalab.aspects.TransientDataException;
-
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +21,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final JobRepository jobRepository;
 
-    @Async("datalabExecutor")
+    @Async("datalabExecutor") // OJO: debe coincidir con el bean name del executor
     @RetryableTransient(maxAttempts = 3, backoffMs = 200)
     public CompletableFuture<Void> processTask(Long taskId) {
 
@@ -39,9 +40,11 @@ public class TaskService {
         task.setAttempts(task.getAttempts() + 1);
         taskRepository.save(task);
 
-        try {if (Math.random() < 0.15) {
-            throw new TransientDataException("Lectura temporal del dataset falló");
-        }
+        try {
+            // Simulación de fallo transitorio para probar el retry
+            if (Math.random() < 0.15) {
+                throw new TransientDataException("Lectura temporal del dataset falló");
+            }
 
             // Simulación de trabajo
             Thread.sleep(200);
@@ -49,6 +52,10 @@ public class TaskService {
             task.setStatus(TaskStatus.COMPLETED);
             task.setFinishedAt(LocalDateTime.now());
             taskRepository.save(task);
+
+        } catch (TransientDataException e) {
+            // MUY IMPORTANTE: relanzar para que el aspect reintente
+            throw e;
 
         } catch (Exception e) {
             task.setStatus(TaskStatus.FAILED);
