@@ -6,6 +6,9 @@ import juanma.datalab.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -47,6 +50,19 @@ public class JobService {
         }
 
         return jobId;
+    }
+    @Transactional
+    public void cancelJob(String jobId) {
+        Job job = jobRepository.findById(jobId).orElseThrow();
+
+        job.setCancelRequested(true);
+        job.setCancelledAt(LocalDateTime.now());
+
+        if (job.getStatus() == JobStatus.PENDING) {
+            job.setStatus(JobStatus.CANCELLED);
+        }
+
+        jobRepository.save(job);
     }
 
     public void processJob(String jobId) {
