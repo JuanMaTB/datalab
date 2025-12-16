@@ -26,7 +26,7 @@ public class TaskService {
 
     private final DatasetService datasetService;
     private final ResultService resultService;
-    private final ObjectMapper objectMapper; // Spring lo inyecta
+    private final ObjectMapper objectMapper;
 
     @Async("datalabExecutor")
     @RetryableTransient(maxAttempts = 3, backoffMs = 200)
@@ -54,7 +54,7 @@ public class TaskService {
             }
 
             JsonNode params = objectMapper.readTree(job.getParamsJson());
-            String source = params.path("source").asText(); // classpath:...
+            String source = params.path("source").asText();
 
             List<String> lines = datasetService.readAllLines(source);
             if (lines.size() <= 1) {
@@ -69,7 +69,7 @@ public class TaskService {
             int shard = task.getShardIndex();
 
             int start = (totalRows * shard) / shards;
-            int end = (totalRows * (shard + 1)) / shards; // exclusivo
+            int end = (totalRows * (shard + 1)) / shards;
 
             double sum = 0.0;
             double min = Double.POSITIVE_INFINITY;
@@ -77,10 +77,21 @@ public class TaskService {
             int count = 0;
 
             for (int i = dataStart + start; i < dataStart + end; i++) {
+
+                // cancelación periódica: cada 50 filas revisamos el flag
+                if (count > 0 && count % 50 == 0) {
+                    boolean cancelled = jobRepository.findById(job.getId()).orElseThrow().isCancelRequested();
+                    if (cancelled) {
+                        task.setStatus(TaskStatus.CANCELLED);
+                        task.setFinishedAt(LocalDateTime.now());
+                        taskRepository.save(task);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }
+
                 String line = lines.get(i);
                 String[] parts = line.split(",", -1);
 
-                // columnas: id, customer_id, product, category, amount, timestamp, payment_type, region
                 double amount = Double.parseDouble(parts[4]);
 
                 sum += amount;
@@ -111,7 +122,6 @@ public class TaskService {
 
         } catch (TransientDataException e) {
             throw e; // para que el aspect reintente
-
         } catch (Exception e) {
             task.setStatus(TaskStatus.FAILED);
             task.setErrorMessage(e.getMessage());

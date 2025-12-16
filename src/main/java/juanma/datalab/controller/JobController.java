@@ -6,7 +6,6 @@ import juanma.datalab.dto.CreateJobJsonRequest;
 import juanma.datalab.dto.JobResponse;
 import juanma.datalab.dto.ResultResponse;
 import juanma.datalab.repository.JobRepository;
-import juanma.datalab.repository.ResultRepository;
 import juanma.datalab.service.JobService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,9 +25,7 @@ public class JobController {
 
     private final JobService jobService;
     private final JobRepository jobRepository;
-    private final ResultRepository resultRepository;
 
-    // POST /api/jobs (JSON) -> crea y dispara
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public JobResponse createFromJson(@RequestBody @Valid CreateJobJsonRequest req) {
 
@@ -44,7 +41,6 @@ public class JobController {
         return toResponse(jobRepository.findById(jobId).orElseThrow());
     }
 
-    // POST /api/jobs (multipart) -> crea y dispara (CSV)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public JobResponse createFromFile(
             @RequestPart("file") MultipartFile file,
@@ -54,8 +50,6 @@ public class JobController {
 
         int realShards = (shards == null) ? 6 : shards;
 
-        // De momento solo “simulamos” que recibimos CSV (guardamos metadata).
-        // (Si quieres, luego almacenamos el contenido y lo shard-eamos.)
         String csv = new String(file.getBytes(), StandardCharsets.UTF_8);
 
         String realParamsJson = (paramsJson == null || paramsJson.isBlank())
@@ -68,31 +62,20 @@ public class JobController {
         return toResponse(jobRepository.findById(jobId).orElseThrow());
     }
 
-    // GET /api/jobs/{id}
     @GetMapping("/{id}")
     public JobResponse getJob(@PathVariable String id) {
         Job job = jobRepository.findById(id).orElseThrow();
         return toResponse(job);
     }
 
-    // GET /api/jobs/{id}/results?page&size
     @GetMapping("/{id}/results")
     public Page<ResultResponse> getResults(@PathVariable String id,
                                            @RequestParam(defaultValue = "0") int page,
                                            @RequestParam(defaultValue = "20") int size) {
-
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-
-        return resultRepository.findByJobId(id, pageable)
-                .map(r -> new ResultResponse(
-                        r.getId(),
-                        id, // NO tocamos r.getJob() para evitar lazy proxies
-                        r.getShardIndex(),
-                        r.getPayloadJson()
-                ));
+        return jobService.findResults(id, pageable);
     }
 
-    // POST /api/jobs/{id}:cancel
     @PostMapping("/{id}:cancel")
     public JobResponse cancel(@PathVariable String id) {
         jobService.cancelJob(id);

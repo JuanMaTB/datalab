@@ -1,6 +1,8 @@
 package juanma.datalab.service;
 
-import juanma.datalab.domain.*;
+import juanma.datalab.domain.Job;
+import juanma.datalab.domain.JobStatus;
+import juanma.datalab.domain.TaskStatus;
 import juanma.datalab.repository.JobRepository;
 import juanma.datalab.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,5 +37,7 @@ public class JobFinalizer {
         } else {
             job.setStatus(JobStatus.FAILED);
         }
+
+        jobRepository.save(job);
     }
 }

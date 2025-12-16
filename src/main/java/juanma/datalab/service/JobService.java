@@ -1,14 +1,18 @@
 package juanma.datalab.service;
 
-import juanma.datalab.domain.*;
+import juanma.datalab.domain.Job;
+import juanma.datalab.domain.JobStatus;
+import juanma.datalab.domain.Task;
+import juanma.datalab.domain.TaskStatus;
+import juanma.datalab.dto.ResultResponse;
 import juanma.datalab.repository.JobRepository;
+import juanma.datalab.repository.ResultRepository;
 import juanma.datalab.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import org.springframework.transaction.annotation.Transactional;
-
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -19,6 +23,7 @@ public class JobService {
 
     private final JobRepository jobRepository;
     private final TaskRepository taskRepository;
+    private final ResultRepository resultRepository;
     private final JobProcessor jobProcessor;
 
     @Transactional
@@ -51,6 +56,7 @@ public class JobService {
 
         return jobId;
     }
+
     @Transactional
     public void cancelJob(String jobId) {
         Job job = jobRepository.findById(jobId).orElseThrow();
@@ -67,5 +73,16 @@ public class JobService {
 
     public void processJob(String jobId) {
         jobProcessor.processJob(jobId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ResultResponse> findResults(String jobId, Pageable pageable) {
+        return resultRepository.findByJobId(jobId, pageable)
+                .map(r -> new ResultResponse(
+                        r.getId(),
+                        jobId,
+                        r.getShardIndex(),
+                        r.getPayloadJson()
+                ));
     }
 }
