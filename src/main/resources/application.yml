@@ -10,3 +10,6 @@ datalab:
     maxPoolSize: 6
     queueCapacity: 200
     threadNamePrefix: datalab-
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} traceId=%X{traceId} - %msg%n"

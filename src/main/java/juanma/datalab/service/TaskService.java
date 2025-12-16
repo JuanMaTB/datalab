@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
+import juanma.datalab.aspects.RetryableTransient;
+import juanma.datalab.aspects.TransientDataException;
+
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ public class TaskService {
     private final JobRepository jobRepository;
 
     @Async("datalabExecutor")
+    @RetryableTransient(maxAttempts = 3, backoffMs = 200)
     public CompletableFuture<Void> processTask(Long taskId) {
 
         Task task = taskRepository.findById(taskId).orElseThrow();
@@ -35,7 +39,10 @@ public class TaskService {
         task.setAttempts(task.getAttempts() + 1);
         taskRepository.save(task);
 
-        try {
+        try {if (Math.random() < 0.15) {
+            throw new TransientDataException("Lectura temporal del dataset falló");
+        }
+
             // Simulación de trabajo
             Thread.sleep(200);
 
