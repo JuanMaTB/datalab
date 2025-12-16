@@ -1,5 +1,7 @@
 package juanma.datalab.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import juanma.datalab.aspects.RetryableTransient;
 import juanma.datalab.aspects.TransientDataException;
 import juanma.datalab.domain.Job;
@@ -12,6 +14,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -21,7 +24,11 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final JobRepository jobRepository;
 
-    @Async("datalabExecutor") // OJO: debe coincidir con el bean name del executor
+    private final DatasetService datasetService;
+    private final ResultService resultService;
+    private final ObjectMapper objectMapper; // Spring lo inyecta
+
+    @Async("datalabExecutor")
     @RetryableTransient(maxAttempts = 3, backoffMs = 200)
     public CompletableFuture<Void> processTask(Long taskId) {
 
@@ -41,21 +48,69 @@ public class TaskService {
         taskRepository.save(task);
 
         try {
-            // Simulación de fallo transitorio para probar el retry
-            if (Math.random() < 0.15) {
+            // fallo transitorio para probar retry
+            if (Math.random() < 0.10) {
                 throw new TransientDataException("Lectura temporal del dataset falló");
             }
 
-            // Simulación de trabajo
-            Thread.sleep(200);
+            JsonNode params = objectMapper.readTree(job.getParamsJson());
+            String source = params.path("source").asText(); // classpath:...
+
+            List<String> lines = datasetService.readAllLines(source);
+            if (lines.size() <= 1) {
+                throw new IllegalStateException("CSV vacío o sin datos");
+            }
+
+            boolean hasHeader = true;
+            int dataStart = hasHeader ? 1 : 0;
+            int totalRows = lines.size() - dataStart;
+
+            int shards = job.getTotalTasks();
+            int shard = task.getShardIndex();
+
+            int start = (totalRows * shard) / shards;
+            int end = (totalRows * (shard + 1)) / shards; // exclusivo
+
+            double sum = 0.0;
+            double min = Double.POSITIVE_INFINITY;
+            double max = Double.NEGATIVE_INFINITY;
+            int count = 0;
+
+            for (int i = dataStart + start; i < dataStart + end; i++) {
+                String line = lines.get(i);
+                String[] parts = line.split(",", -1);
+
+                // columnas: id, customer_id, product, category, amount, timestamp, payment_type, region
+                double amount = Double.parseDouble(parts[4]);
+
+                sum += amount;
+                min = Math.min(min, amount);
+                max = Math.max(max, amount);
+                count++;
+            }
+
+            double avg = (count == 0) ? 0.0 : sum / count;
+
+            String payloadJson = """
+                    {
+                      "jobId": "%s",
+                      "shardIndex": %d,
+                      "rows": %d,
+                      "sumAmount": %.2f,
+                      "avgAmount": %.2f,
+                      "minAmount": %.2f,
+                      "maxAmount": %.2f
+                    }
+                    """.formatted(job.getId(), shard, count, sum, avg, min, max);
+
+            resultService.saveResult(job.getId(), shard, payloadJson);
 
             task.setStatus(TaskStatus.COMPLETED);
             task.setFinishedAt(LocalDateTime.now());
             taskRepository.save(task);
 
         } catch (TransientDataException e) {
-            // MUY IMPORTANTE: relanzar para que el aspect reintente
-            throw e;
+            throw e; // para que el aspect reintente
 
         } catch (Exception e) {
             task.setStatus(TaskStatus.FAILED);

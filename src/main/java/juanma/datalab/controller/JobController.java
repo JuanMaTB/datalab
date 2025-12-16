@@ -4,15 +4,18 @@ import jakarta.validation.Valid;
 import juanma.datalab.domain.Job;
 import juanma.datalab.dto.CreateJobJsonRequest;
 import juanma.datalab.dto.JobResponse;
+import juanma.datalab.dto.ResultResponse;
 import juanma.datalab.repository.JobRepository;
 import juanma.datalab.repository.ResultRepository;
 import juanma.datalab.service.JobService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 
 import java.nio.charset.StandardCharsets;
 
@@ -32,7 +35,7 @@ public class JobController {
         int shards = (req.shards() == null) ? 6 : req.shards();
 
         String paramsJson = (req.paramsJson() == null || req.paramsJson().isBlank())
-                ? "{\"sourceType\":\"URL\",\"sourceUrl\":\"" + req.sourceUrl() + "\"}"
+                ? "{\"sourceType\":\"CSV\",\"source\":\"" + req.sourceUrl() + "\"}"
                 : req.paramsJson();
 
         String jobId = jobService.createJobAndTasks(paramsJson, shards);
@@ -74,11 +77,19 @@ public class JobController {
 
     // GET /api/jobs/{id}/results?page&size
     @GetMapping("/{id}/results")
-    public Page<?> getResults(@PathVariable String id,
-                              @RequestParam(defaultValue = "0") int page,
-                              @RequestParam(defaultValue = "20") int size) {
+    public Page<ResultResponse> getResults(@PathVariable String id,
+                                           @RequestParam(defaultValue = "0") int page,
+                                           @RequestParam(defaultValue = "20") int size) {
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-        return resultRepository.findByJobId(id, pageable);
+
+        return resultRepository.findByJobId(id, pageable)
+                .map(r -> new ResultResponse(
+                        r.getId(),
+                        id, // NO tocamos r.getJob() para evitar lazy proxies
+                        r.getShardIndex(),
+                        r.getPayloadJson()
+                ));
     }
 
     // POST /api/jobs/{id}:cancel
