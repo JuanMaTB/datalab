@@ -26,7 +26,8 @@ public class TaskService {
 
     private final DatasetService datasetService;
     private final ResultService resultService;
-    private final AuditService auditService;   // 👈 NUEVO
+    private final AuditService auditService;
+    private final AnalyzerStrategy analyzerStrategy; // 👈 NUEVO
     private final ObjectMapper objectMapper;
 
     @Async("datalabExecutor")
@@ -49,7 +50,6 @@ public class TaskService {
         taskRepository.save(task);
 
         try {
-            // fallo transitorio para probar retry
             if (Math.random() < 0.10) {
                 throw new TransientDataException("Lectura temporal del dataset falló");
             }
@@ -58,50 +58,15 @@ public class TaskService {
             String source = params.path("source").asText();
 
             List<String> lines = datasetService.readAllLines(source);
-            if (lines.size() <= 1) {
-                throw new IllegalStateException("CSV vacío o sin datos");
-            }
-
-            boolean hasHeader = true;
-            int dataStart = hasHeader ? 1 : 0;
-            int totalRows = lines.size() - dataStart;
 
             int shards = job.getTotalTasks();
             int shard = task.getShardIndex();
 
-            int start = (totalRows * shard) / shards;
-            int end = (totalRows * (shard + 1)) / shards;
+            int totalRows = lines.size() - 1;
+            int start = 1 + (totalRows * shard) / shards;
+            int end = 1 + (totalRows * (shard + 1)) / shards;
 
-            double sum = 0.0;
-            double min = Double.POSITIVE_INFINITY;
-            double max = Double.NEGATIVE_INFINITY;
-            int count = 0;
-
-            for (int i = dataStart + start; i < dataStart + end; i++) {
-
-                // cancelación periódica
-                if (count > 0 && count % 50 == 0) {
-                    boolean cancelled = jobRepository.findById(job.getId()).orElseThrow().isCancelRequested();
-                    if (cancelled) {
-                        task.setStatus(TaskStatus.CANCELLED);
-                        task.setFinishedAt(LocalDateTime.now());
-                        taskRepository.save(task);
-                        return CompletableFuture.completedFuture(null);
-                    }
-                }
-
-                String line = lines.get(i);
-                String[] parts = line.split(",", -1);
-
-                double amount = Double.parseDouble(parts[4]);
-
-                sum += amount;
-                min = Math.min(min, amount);
-                max = Math.max(max, amount);
-                count++;
-            }
-
-            double avg = (count == 0) ? 0.0 : sum / count;
+            AnalysisResult r = analyzerStrategy.analyze(lines, start, end);
 
             String payloadJson = """
                     {
@@ -113,7 +78,15 @@ public class TaskService {
                       "minAmount": %.2f,
                       "maxAmount": %.2f
                     }
-                    """.formatted(job.getId(), shard, count, sum, avg, min, max);
+                    """.formatted(
+                    job.getId(),
+                    shard,
+                    r.getRows(),
+                    r.getSum(),
+                    r.getAvg(),
+                    r.getMin(),
+                    r.getMax()
+            );
 
             resultService.saveResult(job.getId(), shard, payloadJson);
 
@@ -122,7 +95,6 @@ public class TaskService {
             taskRepository.save(task);
 
         } catch (TransientDataException e) {
-            // este se reintenta por AOP, NO lo auditamos aún
             throw e;
 
         } catch (Exception e) {
@@ -131,7 +103,6 @@ public class TaskService {
             task.setFinishedAt(LocalDateTime.now());
             taskRepository.save(task);
 
-            // ✅ auditoría REQUIRES_NEW (no rompe nada)
             auditService.recordTaskFailure(job.getId(), task.getId(), e.getMessage());
         }
 
