@@ -17,6 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/*
+ este service concentra la gestion del ciclo de vida de un job
+ aqui se crean jobs y tasks, se delega la ejecucion concurrente
+ y se exponen consultas de resultados
+*/
+
 @Service
 @RequiredArgsConstructor
 public class JobService {
@@ -29,8 +35,10 @@ public class JobService {
     @Transactional
     public String createJobAndTasks(String paramsJson, int shards) {
 
+        // genero el id del job
         String jobId = UUID.randomUUID().toString();
 
+        // creo el job en estado pendiente
         Job job = Job.builder()
                 .id(jobId)
                 .createdAt(LocalDateTime.now())
@@ -44,6 +52,7 @@ public class JobService {
 
         jobRepository.save(job);
 
+        // creo las tasks asociadas, una por shard
         for (int i = 0; i < shards; i++) {
             Task task = Task.builder()
                     .job(job)
@@ -59,11 +68,14 @@ public class JobService {
 
     @Transactional
     public void cancelJob(String jobId) {
+
+        // marco el job como cancelado
         Job job = jobRepository.findById(jobId).orElseThrow();
 
         job.setCancelRequested(true);
         job.setCancelledAt(LocalDateTime.now());
 
+        // si aun no habia empezado, se cancela directamente
         if (job.getStatus() == JobStatus.PENDING) {
             job.setStatus(JobStatus.CANCELLED);
         }
@@ -71,12 +83,15 @@ public class JobService {
         jobRepository.save(job);
     }
 
+    // delego la ejecucion del job en el processor
     public void processJob(String jobId) {
         jobProcessor.processJob(jobId);
     }
 
     @Transactional(readOnly = true)
     public Page<ResultResponse> findResults(String jobId, Pageable pageable) {
+
+        // obtengo los resultados paginados y los convierto a dto
         return resultRepository.findByJobId(jobId, pageable)
                 .map(r -> new ResultResponse(
                         r.getId(),
