@@ -27,13 +27,21 @@ Todo el flujo está instrumentado con **AOP**, **transacciones** y **auditoría*
 La estructura del proyecto sigue una separación clara por capas:
 
 juanma.datalab
+
 ├─ aspects/ → AOP (performance, retry)
+
 ├─ config/ → executor, async, datasource
+
 ├─ controller/ → API REST
+
 ├─ domain/ → Job, Task, Result
+
 ├─ dto/ → requests y responses
+
 ├─ repository/ → Spring Data JPA
+
 └─ service/ → lógica de negocio y concurrencia
+
 
 
 La lógica **nunca está en los controladores**: todo pasa por servicios.
@@ -156,15 +164,17 @@ POST /api/jobs/{id}:cancel
 ### ▶️ Arrancar el servidor
 
 #### Windows (PowerShell)
-```powershell
-mvn spring-boot:run
+```mvn spring-boot:run```
 
 #### Linux / macOS
-mvn spring-boot:run
+```mvn spring-boot:run```
+
 El servidor arranca en http://localhost:8080.
 
 ### 🧪 Prueba 1: Crear un Job (JSON)
+
 #### Windows (PowerShell)
+```
 $body = @{
   sourceUrl = "classpath:customer_purchases_1000.csv"
   shards = 6
@@ -174,7 +184,26 @@ Invoke-RestMethod -Method Post `
   -Uri "http://localhost:8080/api/jobs" `
   -ContentType "application/json" `
   -Body $body
+```
 #### Linux / macOS
+```
 curl -X POST http://localhost:8080/api/jobs \
   -H "Content-Type: application/json" \
   -d '{"sourceUrl":"classpath:customer_purchases_1000.csv","shards":6}'
+```
+### 🧪 Prueba 2: Ver estado del Job
+```GET /api/jobs/{id} ```
+
+Se puede observar el progreso (%) y el estado final.
+
+### 🧪 Prueba 3: Ver resultados paginados
+```GET /api/jobs/{id}/results?page=0&size=5 ```
+
+### 🧪 Prueba 4: Cancelar un Job en ejecución
+```POST /api/jobs/{id}:cancel ```
+Las Tasks activas detectan el flag y se cancelan correctamente.
+
+### 🧪 Prueba 5: Ver reintentos y auditoría
+- El sistema provoca fallos transitorios de forma controlada.
+- Se observan reintentos en logs.
+- Si una Task falla definitivamente, aparece un registro [AUDIT].
