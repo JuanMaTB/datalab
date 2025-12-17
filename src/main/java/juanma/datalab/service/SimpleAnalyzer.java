@@ -5,6 +5,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/*
+ implementacion simple del analizador
+ se usa por defecto salvo que se active otro perfil
+*/
+
 @Service
 @Primary
 public class SimpleAnalyzer implements AnalyzerStrategy {
@@ -17,6 +22,7 @@ public class SimpleAnalyzer implements AnalyzerStrategy {
         double max = Double.NEGATIVE_INFINITY;
         int count = 0;
 
+        // proceso el rango asignado al shard
         for (int i = start; i < end; i++) {
             String[] parts = lines.get(i).split(",", -1);
             double amount = Double.parseDouble(parts[4]);
@@ -27,6 +33,7 @@ public class SimpleAnalyzer implements AnalyzerStrategy {
             count++;
         }
 
+        // calculo la media
         double avg = (count == 0) ? 0.0 : sum / count;
 
         return new AnalysisResult(count, sum, avg, min, max);
