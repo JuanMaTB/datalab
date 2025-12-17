@@ -110,6 +110,9 @@ Existe un `PerformanceAspect` que:
 - Añade un `traceId` a cada petición usando MDC
 - Permite seguir un Job completo en logs fácilmente
 
+El traceId se genera al inicio de cada petición HTTP mediante un filtro servlet y se propaga a través de MDC, permitiendo correlacionar logs incluso en ejecuciones asíncronas.
+
+
 ---
 
 ## 🧾 Auditoría con REQUIRES_NEW
@@ -157,9 +160,23 @@ GET /api/jobs/{id}/results?page=0&size=10
 ### Cancelar Job
 POST /api/jobs/{id}:cancel
 
+### Health check
+GET /health  
+Endpoint técnico para comprobar que el servicio está levantado.
+
 ---
 
 ## 🧪 Cómo probar el proyecto
+
+### 📦 Empaquetado como fat jar
+
+El proyecto se empaqueta como un **fat jar ejecutable** usando Spring Boot:
+
+mvn clean package  
+java -jar target/datalab-0.0.1-SNAPSHOT.jar
+
+De esta forma la aplicación puede ejecutarse sin necesidad de un servidor externo.
+
 
 ### ▶️ Arrancar el servidor
 
