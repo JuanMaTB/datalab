@@ -1,15 +1,21 @@
 spring:
   application:
+    # nombre de la aplicacion dentro del contexto de spring
     name: datalab
   profiles:
+    # perfil activo por defecto
     active: dev
 
 datalab:
   executor:
+    # configuracion del thread pool usado para @Async
     corePoolSize: 6
     maxPoolSize: 6
     queueCapacity: 200
     threadNamePrefix: datalab-
+
 logging:
   pattern:
+    # formato de logs con informacion de thread y traceId
+    # esto permite seguir una request incluso con ejecucion concurrente
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} traceId=%X{traceId} - %msg%n"
