@@ -9,6 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/*
+ servicio encargado de calcular el estado final de un job
+ se ejecuta cuando todas las tasks han terminado o se ha cancelado
+*/
+
 @Service
 @RequiredArgsConstructor
 public class JobFinalizer {
@@ -19,15 +24,19 @@ public class JobFinalizer {
     @Transactional
     public void finalizeJob(String jobId) {
 
+        // cargo el job actual
         Job job = jobRepository.findById(jobId).orElseThrow();
 
+        // cuento tasks por estado
         long completed = taskRepository.countByJobIdAndStatus(jobId, TaskStatus.COMPLETED);
         long failed = taskRepository.countByJobIdAndStatus(jobId, TaskStatus.FAILED);
         long cancelled = taskRepository.countByJobIdAndStatus(jobId, TaskStatus.CANCELLED);
 
+        // actualizo contadores agregados
         job.setCompletedTasks((int) completed);
         job.setFailedTasks((int) failed);
 
+        // determino el estado final del job
         if (cancelled > 0) {
             job.setStatus(JobStatus.CANCELLED);
         } else if (failed == 0 && completed == job.getTotalTasks()) {
@@ -38,6 +47,7 @@ public class JobFinalizer {
             job.setStatus(JobStatus.FAILED);
         }
 
+        // persisto el estado final
         jobRepository.save(job);
     }
 }
