@@ -1,11 +1,14 @@
 server:
+  # puerto donde se levanta la aplicacion
   port: 8080
 
 spring:
   application:
+    # nombre de la aplicacion
     name: datalab
 
   datasource:
+    # base de datos h2 en memoria para entorno dev
     url: jdbc:h2:mem:datalab;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
@@ -13,16 +16,20 @@ spring:
 
   jpa:
     hibernate:
+      # crea y actualiza las tablas automaticamente en desarrollo
       ddl-auto: update
     properties:
       hibernate:
+        # formatea el sql para facilitar debug
         format_sql: true
 
   h2:
     console:
+      # consola web de h2 para inspeccionar datos
       enabled: true
       path: /h2
 
 logging:
   pattern:
+    # mismo formato de logs con thread y traceId
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} traceId=%X{traceId} - %msg%n"
