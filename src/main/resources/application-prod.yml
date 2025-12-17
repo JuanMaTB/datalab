@@ -1,17 +1,21 @@
 server:
+  # puerto del servicio en produccion
   port: 8080
 
 spring:
   application:
+    # nombre de la aplicacion
     name: datalab
 
   datasource:
+    # conexion a base de datos postgres en produccion
     url: jdbc:postgresql://localhost:5432/datalab
     username: datalab
     password: datalab
     driver-class-name: org.postgresql.Driver
 
     hikari:
+      # configuracion del pool de conexiones
       pool-name: DatalabHikariPool
       maximum-pool-size: 10
       minimum-idle: 2
@@ -21,11 +25,14 @@ spring:
 
   jpa:
     hibernate:
+      # en prod no se tocan las tablas automaticamente
       ddl-auto: validate
     properties:
       hibernate:
+        # sin formateo para reducir ruido en logs
         format_sql: false
 
 logging:
   pattern:
+    # logs con informacion de thread y traceId
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} traceId=%X{traceId} - %msg%n"
