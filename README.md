@@ -168,6 +168,8 @@ Endpoint técnico para comprobar que el servicio está levantado.
 
 ## 🧪 Cómo probar el proyecto
 
+Se incluye una colección de peticiones HTTP en el archivo requests.http para probar la API.
+
 ### 📦 Empaquetado como fat jar
 
 El proyecto se empaqueta como un **fat jar ejecutable** usando Spring Boot:
