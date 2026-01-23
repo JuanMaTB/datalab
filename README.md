@@ -3,9 +3,6 @@
 Este proyecto es la resolución del **Feedback 1 de Programación Concurrente**.  
 La idea principal es construir un **servicio REST en Spring Boot** capaz de recibir trabajos (*Jobs*) de análisis de datasets (CSV), dividirlos en tareas (*Tasks*) y ejecutarlas **en paralelo**, aplicando concurrencia, transacciones, AOP y buenas prácticas de diseño.
 
-No es un “hola mundo”: aquí hay **paralelismo real**, control de estados, reintentos, auditoría y métricas.
-
----
 
 ## 🧠 Idea general
 
@@ -18,9 +15,7 @@ El sistema funciona así:
 5. Cada Task genera un **Result** con estadísticas reales (sum, avg, min, max).
 6. Al finalizar, el Job pasa a `COMPLETED`, `PARTIAL_SUCCESS`, `FAILED` o `CANCELLED`.
 
-Todo el flujo está instrumentado con **AOP**, **transacciones** y **auditoría**.
 
----
 
 ## 🏗️ Arquitectura y paquetes
 
@@ -85,7 +80,7 @@ Implementaciones:
 - `SimpleAnalyzer` → estrategia por defecto (`@Primary`)
 - `AdvancedAnalyzer` → solo activa en perfil `prod`
 
-Esto permite cambiar el comportamiento **sin tocar el resto del sistema**, demostrando uso real de IoC y DI.
+Así se permite cambiar el comportamiento **sin tocar el resto del sistema**.
 
 ---
 
@@ -98,9 +93,6 @@ Para eso se ha implementado:
 - Aspecto que reintenta la ejecución con backoff
 - Excepción `TransientDataException`
 
-Los reintentos se aplican **solo donde tiene sentido**.
-
----
 
 ## ⏱️ Métricas y trazabilidad (AOP + MDC)
 
@@ -123,9 +115,7 @@ Cuando una Task falla definitivamente:
 - Usa `@Transactional(REQUIRES_NEW)`
 - El fallo se audita **sin romper la transacción principal**
 
-Esto demuestra control avanzado de transacciones.
 
----
 
 ## 🗄️ Persistencia y perfiles
 
